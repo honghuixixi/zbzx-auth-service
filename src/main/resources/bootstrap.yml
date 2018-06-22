@@ -1,0 +1,9 @@
+spring:
+  application:
+    name: zbzx-auth-server   
+  profiles:
+    active: default
+  cloud:
+    config:
+      uri: http://admin:aek56.cc@dev.aek.com:8761/config/  
+      label:  develop        

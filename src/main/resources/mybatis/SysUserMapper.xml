@@ -1,0 +1,152 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.aek56.microservice.auth.mapper.SysUserMapper">
+
+
+	<!-- 通用查询映射结果 -->
+	<resultMap id="BaseResultMap" type="com.aek56.microservice.auth.entity.SysUser">
+		<id column="id" property="id" />
+		<result column="tenant_id" property="tenantId" />
+		<result column="tenant_name" property="tenantName" />
+		<result column="real_name" property="realName" />
+		<result column="password" property="password" />
+		<result column="mobile" property="mobile" />
+		<result column="email" property="email" />
+		<result column="dept_id" property="deptId" />
+		<result column="dept_name" property="deptName" />
+		<result column="parent_dept_ids" property="parentDeptIds" />
+		<result column="admin_flag" property="adminFlag" />
+		<result column="login_name" property="loginName" />
+		<result column="registration_ip" property="registrationIp" />
+		<result column="enable" property="enable" />
+		<result column="del_flag" property="delFlag" />
+		<result column="last_login_ip" property="lastLoginIp" />
+		<result column="last_login_time" property="lastLoginTime" />
+		<result column="last_client_type" property="lastClientType" />
+	</resultMap>
+	
+
+    <!-- 通用查询结果列 -->
+    <sql id="Base_Column_List">
+        id, tenant_id, tenant_name, real_name, password, mobile, email, dept_id,
+        dept_name, parent_dept_ids, admin_flag, registration_ip,enable,del_flag,
+        last_login_ip, last_login_time, last_client_type AS lastClientType
+    </sql>
+
+    <!-- 根据登录名查询用户 -->
+    <select id="getByLoginName" resultMap="BaseResultMap">
+    	select 
+       	s.id,s.parent_dept_ids, s.tenant_id, s.tenant_name,t.tenant_type, s.real_name, s.password, s.mobile, s.email, s.dept_id,
+        s.dept_name, s.admin_flag, s.registration_ip,s.enable,
+        s.last_login_ip, s.last_login_time, s.last_client_type AS lastClientType
+        from sys_user s LEFT JOIN sys_tenant t on s.tenant_id = t.id
+        WHERE s.login_name = #{loginName} and s.enable = true and s.del_flag = false
+        and t.enable = true and t.del_flag = false
+    </select>
+    
+    <!-- 管理平台登录 -->
+    <select id="getUserByLoginName" resultMap="BaseResultMap">
+    	select 
+       	s.id,s.parent_dept_ids, s.tenant_id, s.tenant_name,t.tenant_type, s.real_name, s.password, s.mobile, s.email, s.dept_id,
+        s.dept_name, s.admin_flag, s.registration_ip,s.enable,
+        s.last_login_ip, s.last_login_time, s.last_client_type AS lastClientType
+        from sys_user s LEFT JOIN sys_tenant t on s.tenant_id = t.id
+        WHERE s.login_name=#{loginName} and s.del_flag = false
+        and t.del_flag = false
+    </select>
+    
+    <!-- 根据登录名查询用户，enable,并且机构停用，删除 不参加过滤 -->
+    <select id="getUserByLoginIdNoTenant" resultMap="BaseResultMap">
+    	select 
+       	s.id,s.parent_dept_ids, s.tenant_id, s.tenant_name,t.tenant_type, s.real_name, s.password, s.mobile, s.email, s.dept_id,
+        s.dept_name, s.admin_flag, s.registration_ip,s.enable,
+        s.last_login_ip, s.last_login_time, s.last_client_type AS lastClientType
+        from sys_user s LEFT JOIN sys_tenant t on s.tenant_id = t.id
+        <!-- 判断登录输入的用户名，有可能是手机号或者邮箱，是邮箱时则需判断邮箱是否激活 -->
+        WHERE (s.mobile = #{loginId} or (s.email=#{loginId} and s.email_activate=1))  and s.del_flag = false
+    </select>
+    
+    <!-- 根据tenantId集合获取用户 -->
+    <select id="getUserByTenantIds" resultMap="BaseResultMap">
+        select 
+        <include refid="Base_Column_List"/>
+        from sys_user where del_flag = false and tenant_id in
+        <foreach item="item" index="index" collection="tenantIds" open="(" separator="," close=")">  
+			      ${item}  
+		</foreach> 
+		
+    </select>
+
+    <select id="getByMobile" resultMap="BaseResultMap">
+    	select 
+        <include refid="Base_Column_List"/>
+        from sys_user
+        WHERE mobile = #{mobile} and del_flag = false
+    </select>
+
+    <select id="get" resultMap="BaseResultMap">
+    	select 
+        <include refid="Base_Column_List"/>
+        from sys_user
+        WHERE id=#{id} and enable = true and del_flag = false
+    </select>
+
+    <select id="getUsersByRole" resultType="java.util.Map">
+		select DISTINCT su.tenant_id as tenantId,su.mobile as mobile FROM sys_role r,sys_role_user u,sys_user su
+		where r.id=u.role_id and u.user_id=su.id and r.id=#{roleId}
+		and r.`enable`=true and r.del_flag=false
+		and u.`enable`=true
+		and su.`enable` = true and su.del_flag = FALSE
+    </select>
+    
+    <!-- 当前租户的子租户 -->
+    <select id="getSubTenantList" resultType="java.lang.Long">
+       select id from sys_tenant where  `enable`= true and `del_flag` = false and parent_ids like #{perttern}     
+    </select>
+    
+    <!-- 更新登陆信息-->    	
+	<update id="updateLoginInfo" parameterType="map">
+      UPDATE 
+            sys_user  
+      SET
+            last_login_ip = #{ip},
+            last_login_time = #{loginTime},            
+            last_client_type = #{device}
+      WHERE 
+            id = #{id} 
+    </update>
+    
+    <!-- 更新用户密码-->    	
+	<update id="updatePassword" parameterType="map">
+      UPDATE 
+            sys_user  
+      SET
+            password = #{password},
+            update_by = #{update_by},            
+            update_time = now()
+      WHERE 
+            id = #{id} 
+    </update>
+    
+     <!-- 当前部门的子部门 -->
+    <select id="getSubDeptIds" resultType="java.lang.Long">
+       select id from sys_dept where (parent_ids like CONCAT('%',#{deptId},'%') or id=#{deptId}) and tenant_id=#{tenantId} 
+    </select>
+	
+	<!-- 查询某机构下拥有指定权限的用户 -->
+	<select id="getUserByTenantIdAndPermissionCode" resultMap="BaseResultMap">
+		select 
+		<include refid="Base_Column_List"/> 
+		from sys_user where id in(
+			select DISTINCT r.user_id
+			from sys_role_permission rp 
+			left join sys_permission p on rp.permission_id = p.id
+			left join sys_role_user r on rp.role_id = r.role_id
+			where rp.tenant_id=#{tenantId} and rp.`enable`= true and rp.del_flag = false and p.code= #{permissionCode} and r.tenant_id=#{tenantId}
+		) and enable=true and del_flag=false
+	</select>
+	
+	<select id="selectById" resultMap="BaseResultMap">
+		SELECT * FROM `sys_user` WHERE id=#{userId}
+	</select>
+</mapper>

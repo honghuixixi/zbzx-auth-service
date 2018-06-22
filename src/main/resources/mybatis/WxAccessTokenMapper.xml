@@ -1,0 +1,33 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.aek56.microservice.auth.mapper.WxAccessTokenMapper">
+
+
+	<!-- 通用查询映射结果 -->
+	<resultMap id="BaseResultMap" type="com.aek56.microservice.auth.weixin.token.WeiXinAccessToken">
+		<id column="id" property="id" />
+		<result column="access_token" property="accessToken" />
+		<result column="jsapi_ticket" property="jsApiTicket"/>
+		<result column="expires_in" property="expiresIn" />
+		<result column="create_time" property="createTime" />
+	</resultMap>
+	
+
+    <!-- 通用查询结果列 -->
+    <sql id="Base_Column_List">
+        id, access_token, jsapi_ticket, expires_in, create_time
+    </sql>
+    
+    <!-- 保存微信接入Token -->
+    <insert id="insertWxAccessToken" parameterType="com.aek56.microservice.auth.weixin.token.WeiXinAccessToken">
+    	insert into wx_access_token(access_token,jsapi_ticket,expires_in,create_time) values(#{accessToken.accessToken},#{accessToken.jsApiTicket},#{accessToken.expiresIn},#{accessToken.createTime})
+    </insert>
+
+    <!-- 查询最新微信接入Token -->
+    <select id="selectWxAccessToken" resultMap="BaseResultMap">
+    	select 
+    	<include refid="Base_Column_List"/>
+        from wx_access_token order by id desc limit 0,1
+    </select>
+    
+</mapper>

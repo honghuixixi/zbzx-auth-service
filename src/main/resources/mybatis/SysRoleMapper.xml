@@ -1,0 +1,177 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.aek56.microservice.auth.mapper.SysRoleMapper">
+
+    <sql id="selectColumns">
+        SELECT
+            a.id,
+            a.name,
+            a.code,
+            a.enable,
+            a.create_time,
+            a.update_time
+        FROM sys_role a
+    </sql>
+
+    <select id="findListByUser" resultType="com.aek56.microservice.auth.entity.SysRole">
+		select sr.id,sr.name,sr.code,sr.enable
+		from sys_role sr,sys_role_user ru
+		where sr.id=ru.role_id and sr.`enable`=true and sr.del_flag = false and ru.`enable` = true
+		and sr.tenant_id = #{tenantId} and ru.user_id = #{userId}
+		order by sr.id asc
+    </select>
+
+    <select id="get" resultType="com.aek56.microservice.auth.entity.SysRole">
+        <include refid="selectColumns"/>
+        WHERE a.id = #{id}
+    </select>
+
+    <select id="findList" resultType="com.aek56.microservice.auth.entity.SysRole">
+		select sr.id,sr.name,sr.code,sr.enable,sr.data_scope as dataScope
+		from sys_role sr
+		where sr.`enable`=true and sr.del_flag = false
+		and sr.tenant_id = #{tenantId}
+		order by sr.id asc
+    </select>
+
+	<select id="isOrgAdmin" resultType="boolean">
+		<!-- 
+		SELECT count(sr.id) FROM `sys_role_user` ru,sys_role sr 
+		#where ru.role_id=sr.id and sr.tenant_id=#{tenantId} and ru.user_id = #{userId} and sr.name='机构管理员'
+		#and ru.`enable` = true and sr.del_flag = false and sr.`enable` = true
+		-->
+		<!-- 拥有当期机构或爱医康机构下的机构管理员角色 -->
+		select count(sr.id) 
+		from  sys_role_user ru
+		left join sys_role sr on ru.role_id = sr.id
+		where ru.user_id=#{userId} AND (sr.tenant_id = #{tenantId} or sr.tenant_id = 1) 
+		AND sr.name = '机构管理员' AND ru.`enable` = TRUE AND sr.del_flag = FALSE AND sr.`enable` = TRUE
+	</select>
+ 
+	<select id="isSubOrg" resultType="boolean">
+		select * from sys_tenant where parent_id = #{parentTenantId} and id = #{subTenantId} and `enable` = true and del_flag = false
+	</select>
+	
+	<select id="isTenantEnable" resultType="boolean">
+		select enable from sys_tenant where id = #{tenantId} and del_flag = false
+	</select>
+
+	<select id="getOrgModule" resultType="java.util.Map">
+		SELECT
+			tm.name,
+			tm.url,
+			tm.module_id AS moduleId,
+			tm.version_number AS version,
+			um.module_group AS moduleGroup,
+			um.module_order AS moduleOrder,
+			tm.description
+		FROM
+			sys_tenant_module tm
+		LEFT JOIN sys_user_module um ON tm.module_id = um.module_id
+		AND um.user_id = #{userId}
+		WHERE
+			tm.tenant_id = #{tenantId}
+		AND tm.`enable` = TRUE
+		AND tm.del_flag = FALSE
+		GROUP BY
+			tm.module_id,tm.name,tm.url,tm.version_number,um.module_group,um.module_order,tm.description
+		ORDER BY
+			um.module_group,
+			um.module_order
+	</select>
+	
+	<select id="getOrgModuleByRole" resultType="java.util.Map">
+		SELECT
+			t.*, um.module_group AS moduleGroup,
+			um.module_order AS moduleOrder
+		FROM
+			(
+				SELECT DISTINCT
+					sm.`name`,
+					sm.url,
+					sm.id AS moduleId,
+					sm.version_number AS version,
+					ru.user_id AS userId,
+					sm.description
+				FROM
+					sys_role_user ru
+				INNER JOIN sys_role_permission rp
+				INNER JOIN sys_module sm ON ru.role_id = rp.role_id
+				AND rp.module_id = sm.id
+				WHERE
+					ru.user_id = #{userId}
+				AND ru.tenant_id = #{tenantId}
+				AND ru.`enable` = TRUE
+				AND rp.del_flag = FALSE
+				AND rp.`enable` = TRUE
+				AND sm.del_flag = FALSE
+				AND sm.`enable` = TRUE 
+				group BY sm.id,sm.name,sm.url,sm.version_number,ru.user_id
+			) t
+		LEFT JOIN sys_user_module um ON um.user_id = t.userId
+		AND um.module_id = moduleId
+		ORDER BY
+			um.module_group,
+			um.module_order
+	</select>
+
+	<select id="getTenant" resultType="java.util.Map">
+		select id,name,parent_ids,license,tenant_type,admin_id from sys_tenant where id = #{tenantId}
+		and `enable` = true and del_flag = false
+	</select>
+	
+	<select id="getTenantInfo" resultType="com.aek56.microservice.auth.entity.SysTenant">
+		select id,audit_status as auditStatus,enable,del_flag as delFlag,tenant_type as tenantType from sys_tenant where id = #{tenantId}
+	</select>
+	
+	<select id="getTenantById" resultType="com.aek56.microservice.auth.entity.SysTenant">
+		select * from sys_tenant where id = #{tenantId}
+	</select>
+
+	<select id="getOrg" resultType="java.util.Map">
+		select DISTINCT id,name,tenant_type from sys_tenant where (id = #{tenantId} or parent_ids like CONCAT(#{parentTenantIds},'%'))
+		and `enable` = true and del_flag = false and tenant_type != 3
+		ORDER BY id asc
+	</select>
+	
+	<select id="getOrgByRole" resultType="java.util.Map">
+		select DISTINCT st.id,st.name,tenant_type from sys_role_user ru,sys_role r,sys_tenant st
+		where ru.role_id=r.id and r.tenant_id=st.id
+		and ru.`enable`=true and r.`enable`=true and r.del_flag=false
+		and st.`enable`=true and st.del_flag=false and st.tenant_type != 3
+		and ru.user_id = #{userId}
+		ORDER BY st.id asc
+	</select>
+	
+	<!-- 根据用户和所在机构查询数据范围 -->
+	 <select id="findDataScopeByUser" resultType="java.lang.Integer">
+		select sr.data_scope
+		from sys_role sr,sys_role_user ru
+		where sr.id=ru.role_id and sr.`enable`=true and sr.del_flag = false and ru.`enable` = true
+		and sr.tenant_id = #{tenantId} and ru.user_id = #{userId}
+		order by sr.data_scope asc limit 1
+    </select>
+    
+    <!-- 根据当前用户查询当前用户权限码与数据范围集合 -->
+    <select id="findDataScopeListByUser" resultType="java.util.Map">
+    	<!-- select p.code,r.data_scope from (
+			select * from sys_role_permission where  tenant_id=#{tenantId} and del_flag=0 and enable=1 and module_id in(
+				select module_id from sys_user_module where user_id=#{userId}
+			) and role_id in (select role_id from sys_role_user where user_id=#{userId} and tenant_id=#{tenantId} and enable=1)
+		) t
+		left join sys_role r on t.role_id = r.id
+		left join sys_permission p on t.permission_id = p.id
+		where p.code is not null -->
+		select t.code,min(r.data_scope) as data_scope,r.custom_data from (
+			select rp.tenant_id,rp.role_id,sp.`code`,sp.name from 
+			sys_role_permission  rp
+			left join sys_permission sp on rp.permission_id = sp.id
+			where rp.role_id in(select role_id from sys_role_user where tenant_id=#{tenantId} and user_id=#{userId} and enable=1) and rp.tenant_id=#{tenantId} and rp.del_flag=0 and rp.enable=1 and sp.menu_flag=0
+		) t
+		left join sys_role r on t.role_id=r.id
+		where t.code is not null 
+		group by t.code
+    </select>
+    
+    
+</mapper>

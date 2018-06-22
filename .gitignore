@@ -1,0 +1,9 @@
+/build/
+/bin/
+/.classpath
+/.project
+/.settings
+/target/
+/.factorypath
+/.apt_generated/
+/.springBeans

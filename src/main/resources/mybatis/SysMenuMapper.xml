@@ -1,0 +1,31 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.aek56.microservice.auth.mapper.SysMenuMapper">
+	
+	<select id="findListByOrg" resultType="com.aek56.microservice.auth.entity.SysMenu">
+		SELECT DISTINCT
+				sp.parent_id as parentId,sp.module_id as moduleId,sp.name,sp.code,sp.menu_flag as menuFlag,sp.url,sp.target,sp.`enable`
+			from sys_permission sp,sys_role_permission rp where sp.id=rp.permission_id and rp.tenant_id = #{tenantId} and sp.`enable` = true and rp.del_flag = false and rp.`enable` = true
+	</select>
+
+    <select id="findListByRole" resultType="com.aek56.microservice.auth.entity.SysMenu">
+		SELECT DISTINCT
+			sp.id,sp.parent_id as parentId,sp.module_id as moduleId,sp.name,sp.code,sp.menu_flag as menuFlag,sp.url,sp.target,sp.`enable`
+		FROM
+			sys_role_user ru,
+			sys_role_permission rp,
+			sys_permission sp
+		WHERE
+			ru.role_id = rp.role_id
+		AND rp.permission_id = sp.id
+		AND ru.user_id = #{userId}
+		AND ru.tenant_id = #{tenantId}
+		AND ru.`enable` = TRUE
+		AND rp.del_flag = FALSE
+		AND rp.`enable` = TRUE
+		AND sp.`enable` = TRUE
+		ORDER BY
+			sp.id ASC
+    </select>
+
+</mapper>
